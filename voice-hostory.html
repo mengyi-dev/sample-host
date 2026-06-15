@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Voice History App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col h-[600px]">
+        <div class="bg-blue-600 text-white p-5 text-center">
+            <h1 class="text-2xl font-bold">Voice Chat History</h1>
+            <p class="text-blue-200 text-sm mt-1">Saved locally via IndexedDB</p>
+        </div>
+
+        <div id="recordings-list" class="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50">
+            <div class="text-center text-gray-400 italic mt-10" id="empty-state">
+                No voice messages yet. Start recording!
+            </div>
+        </div>
+
+        <div class="p-5 bg-white border-t border-gray-100 flex justify-center gap-4 items-center">
+            <button id="record-btn" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-all transform hover:scale-105 flex items-center gap-2">
+                <span class="w-3 h-3 bg-white rounded-full animate-pulse hidden" id="recording-indicator"></span>
+                <span id="record-text">🎤 Record</span>
+            </button>
+            <button id="stop-btn" class="bg-gray-800 hover:bg-gray-900 text-white font-semibold py-3 px-6 rounded-full shadow-lg opacity-50 cursor-not-allowed transition-all" disabled>
+                ⏹ Stop
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. DATABASE SETUP (Dexie.js)
+        // ==========================================
+        const db = new Dexie('ChatbotVoiceHistory');
+        db.version(1).stores({
+            messages: '++id, timestamp, sender' // We don't index the audioBlob, just metadata
+        });
+
+        // ==========================================
+        // 2. UI ELEMENTS & STATE
+        // ==========================================
+        const recordBtn = document.getElementById('record-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const recordText = document.getElementById('record-text');
+        const recordingIndicator = document.getElementById('recording-indicator');
+        const recordingsList = document.getElementById('recordings-list');
+        const emptyState = document.getElementById('empty-state');
+
+        let mediaRecorder;
+        let audioChunks = [];
+
+        // ==========================================
+        // 3. AUDIO RECORDING LOGIC
+        // ==========================================
+        recordBtn.addEventListener('click', async () => {
+            try {
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    // Create the Audio Blob from the recorded chunks
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    
+                    // Save to IndexedDB
+                    await saveRecording(audioBlob);
+                    
+                    // Refresh the UI
+                    loadRecordings();
+                };
+
+                // Start recording
+                mediaRecorder.start();
+
+                // Update UI state
+                recordBtn.classList.replace('bg-red-500', 'bg-red-700');
+                recordText.innerText = "Recording...";
+                recordingIndicator.classList.remove('hidden');
+                recordBtn.disabled = true;
+                
+                stopBtn.disabled = false;
+                stopBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+            } catch (err) {
+                alert("Microphone access denied or not found!");
+                console.error(err);
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            // Stop recording
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                
+                // Stop all microphone tracks to turn off the red browser dot
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+
+            // Reset UI state
+            recordBtn.classList.replace('bg-red-700', 'bg-red-500');
+            recordText.innerText = "🎤 Record";
+            recordingIndicator.classList.add('hidden');
+            recordBtn.disabled = false;
+            
+            stopBtn.disabled = true;
+            stopBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        });
+
+        // ==========================================
+        // 4. INDEXEDDB LOGIC (SAVE & LOAD)
+        // ==========================================
+        async function saveRecording(blob) {
+            try {
+                await db.messages.add({
+                    audioBlob: blob,
+                    sender: 'user',
+                    timestamp: new Date().getTime()
+                });
+            } catch (error) {
+                console.error('Error saving audio:', error);
+            }
+        }
+
+        async function loadRecordings() {
+            try {
+                // Fetch all messages sorted by newest first
+                const messages = await db.messages.orderBy('timestamp').reverse().toArray();
+                
+                recordingsList.innerHTML = ''; // Clear list
+                
+                if (messages.length === 0) {
+                    recordingsList.appendChild(emptyState);
+                    emptyState.classList.remove('hidden');
+                    return;
+                }
+
+                // Render each message
+                messages.forEach(msg => {
+                    // Create a playable local URL for the Blob
+                    const audioUrl = URL.createObjectURL(msg.audioBlob);
+                    const date = new Date(msg.timestamp).toLocaleTimeString();
+
+                    const item = document.createElement('div');
+                    item.className = 'bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2 transition-all hover:shadow-md';
+                    
+                    item.innerHTML = `
+                        <div class="flex justify-between items-center text-xs text-gray-500 mb-1">
+                            <span class="font-bold text-blue-600">You</span>
+                            <span>${date}</span>
+                        </div>
+                        <audio controls src="${audioUrl}" class="w-full h-10"></audio>
+                        <button onclick="deleteRecording(${msg.id})" class="text-xs text-red-500 hover:text-red-700 text-right mt-1 w-fit self-end">
+                            Delete
+                        </button>
+                    `;
+                    
+                    recordingsList.appendChild(item);
+                });
+
+            } catch (error) {
+                console.error('Error loading audio:', error);
+            }
+        }
+
+        // ==========================================
+        // 5. DELETE LOGIC
+        // ==========================================
+        // Attach this to the global window object so the inline onclick can find it
+        window.deleteRecording = async (id) => {
+            await db.messages.delete(id);
+            loadRecordings(); // Refresh UI
+        };
+
+        // Initialize UI on page load
+        loadRecordings();
+    </script>
+</body>
+</html>
