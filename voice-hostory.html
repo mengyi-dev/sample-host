@@ -71,8 +71,18 @@
                 };
 
                 mediaRecorder.onstop = async () => {
-                    // Create the Audio Blob from the recorded chunks
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    // Ask the browser what audio format it actually prefers (iOS Fix)
+                    let audioType = 'audio/webm'; // Default for Chrome/Android
+                    if (typeof MediaRecorder.isTypeSupported === 'function') {
+                        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                            audioType = 'audio/mp4'; // Apple iOS preference
+                        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+                            audioType = 'audio/ogg'; // Firefox preference
+                        }
+                    }
+
+                    // Create the Audio Blob using the phone's preferred format
+                    const audioBlob = new Blob(audioChunks, { type: audioType });
                     
                     // Save to IndexedDB
                     await saveRecording(audioBlob);
@@ -94,8 +104,8 @@
                 stopBtn.classList.remove('opacity-50', 'cursor-not-allowed');
 
             } catch (err) {
-                alert("Microphone access denied or not found!");
-                console.error(err);
+                alert("Microphone access denied or not found! Ensure you are on HTTPS.");
+                console.error("Mic access error:", err);
             }
         });
 
