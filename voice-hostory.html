@@ -29,7 +29,7 @@
                 <div class="flex items-center gap-2">
                     <span class="text-gray-400 text-sm">💾</span>
                     <div class="text-[10px] text-gray-500 font-medium">
-                        <span id="storage-used" class="text-gray-800 font-bold">0 MB</span> used
+                        <span id="storage-used" class="text-gray-800 font-bold">0 KB</span> used
                     </div>
                 </div>
                 <div class="text-[10px] text-gray-400">
@@ -96,24 +96,46 @@
         let audioChunks = [];
 
         // ==========================================
-        // 3. STORAGE DASHBOARD LOGIC
+        // 3. STORAGE DASHBOARD LOGIC (Mobile Safe Fix)
         // ==========================================
         async function updateStorageDashboard() {
-            if (navigator.storage && navigator.storage.estimate) {
-                try {
-                    const estimate = await navigator.storage.estimate();
-                    // Convert bytes to MB/GB
-                    const usedMB = (estimate.usage / (1024 * 1024)).toFixed(2);
-                    const totalGB = (estimate.quota / (1024 * 1024 * 1024)).toFixed(1);
-                    
-                    storageUsedEl.innerText = `${usedMB} MB`;
-                    storageTotalEl.innerText = `${totalGB} GB`;
-                } catch (e) {
-                    console.log("Storage estimation failed", e);
+            try {
+                // STEP 1: Calculate the EXACT usage manually from our database
+                let totalUsedBytes = 0;
+                const messages = await db.messages.toArray();
+                
+                messages.forEach(msg => {
+                    if (msg.type === 'audio' && msg.audioBlob) {
+                        totalUsedBytes += msg.audioBlob.size; // Add audio file size
+                    } else if (msg.type === 'text' && msg.content) {
+                        // Add text size (using Blob to get exact byte length)
+                        totalUsedBytes += new Blob([msg.content]).size; 
+                    }
+                });
+
+                // Format the output dynamically (Show KB if very small, otherwise MB)
+                let usedDisplay;
+                if (totalUsedBytes === 0) {
+                    usedDisplay = "0 KB";
+                } else if (totalUsedBytes < 1024 * 1024) {
+                    usedDisplay = (totalUsedBytes / 1024).toFixed(1) + ' KB';
+                } else {
+                    usedDisplay = (totalUsedBytes / (1024 * 1024)).toFixed(2) + ' MB';
                 }
-            } else {
-                storageUsedEl.innerText = "N/A";
-                storageTotalEl.innerText = "N/A";
+                
+                storageUsedEl.innerText = usedDisplay;
+
+                // STEP 2: Still use the browser API to get the total Max Quota allowed
+                if (navigator.storage && navigator.storage.estimate) {
+                    const estimate = await navigator.storage.estimate();
+                    const totalGB = (estimate.quota / (1024 * 1024 * 1024)).toFixed(1);
+                    storageTotalEl.innerText = `${totalGB} GB`;
+                } else {
+                    storageTotalEl.innerText = "Unknown";
+                }
+            } catch (e) {
+                console.log("Storage calculation failed", e);
+                storageUsedEl.innerText = "Error";
             }
         }
 
