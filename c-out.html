@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+  >
+
+  <!-- Include only this PayWay script -->
+  <script
+    src="https://checkout.payway.com.kh/plugins/checkout2-0.js"
+    defer
+  ></script>
+
+  <script>
+    /*
+     * Detect the LINE in-app browser before the page renders.
+     */
+    (function () {
+      const userAgent = navigator.userAgent || "";
+
+      if (/\bLine\/[\d.]+/i.test(userAgent)) {
+        document.documentElement.classList.add("line-browser");
+      }
+    })();
+  </script>
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: #ffffff;
+    }
+
+    /*
+     * Fix 1:
+     * Remove PayWay's dark background only inside LINE.
+     *
+     * The overlay still exists, so users cannot accidentally
+     * interact with the page behind the payment sheet.
+     */
+    html.line-browser
+    #aba_checkout_sheet
+    > .aba_checkout_overlay {
+      background: transparent !important;
+      opacity: 0 !important;
+    }
+
+    /*
+     * Ensure that the outer PayWay sheet itself does not
+     * create an additional background.
+     */
+    html.line-browser #aba_checkout_sheet {
+      background: transparent !important;
+    }
+
+    /*
+     * Keep the PayWay payment content visible.
+     */
+    html.line-browser
+    #aba_checkout_sheet
+    .aba_checkout_contents {
+      background: #ffffff !important;
+    }
+  </style>
+</head>
+
+<body>
+  <form
+    method="POST"
+    target="aba_webservice"
+    action="https://checkout-sandbox.payway.com.kh/api/payment-gateway/v1/payments/purchase"
+    id="aba_merchant_request"
+  >
+    <!-- Replace these test values with real signed values -->
+    <input
+      type="hidden"
+      name="merchant_id"
+      value="YOUR_MERCHANT_ID"
+    >
+
+    <input
+      type="hidden"
+      name="tran_id"
+      value="YOUR_UNIQUE_TRANSACTION_ID"
+    >
+
+    <input
+      type="hidden"
+      name="amount"
+      value="0.10"
+    >
+
+    <input
+      type="hidden"
+      name="req_time"
+      value="YOUR_REQUEST_TIME"
+    >
+
+    <input
+      type="hidden"
+      name="hash"
+      value="YOUR_GENERATED_HASH"
+    >
+
+    <input
+      type="hidden"
+      name="currency"
+      value="USD"
+    >
+
+    <!-- Use button instead of submit to prevent duplicate submission -->
+    <button type="button" id="aba_pay_button">
+      Submit
+    </button>
+  </form>
+
+  <script>
+    (function () {
+      const form =
+        document.getElementById("aba_merchant_request");
+
+      const payButton =
+        document.getElementById("aba_pay_button");
+
+      const isLineBrowser =
+        document.documentElement.classList.contains(
+          "line-browser"
+        );
+
+      /*
+       * Modes:
+       *
+       * "bottom-sheet"
+       *   Keep PayWay bottom sheet and remove its dark overlay.
+       *
+       * "hosted"
+       *   Open PayWay as a full-page checkout inside LINE.
+       *
+       * Start with bottom-sheet.
+       */
+      const LINE_CHECKOUT_MODE = "bottom-sheet";
+
+      let checkoutOpening = false;
+
+      function removeDuplicatePluginFields() {
+        const fields = form.querySelectorAll(
+          'input[name="is_plugin_js"]'
+        );
+
+        /*
+         * PayWay should only need one is_plugin_js field.
+         */
+        fields.forEach(function (field, index) {
+          if (index > 0) {
+            field.remove();
+          }
+        });
+      }
+
+      function removeDuplicatePaywayLogos() {
+        const paywayApp =
+          document.getElementById("aba_checkout_app");
+
+        if (!paywayApp) {
+          return;
+        }
+
+        const logos = paywayApp.querySelectorAll(
+          'img[src*="payway-logo-white.svg"]'
+        );
+
+        logos.forEach(function (logo, index) {
+          if (index > 0) {
+            logo.remove();
+          }
+        });
+      }
+
+      function cleanGeneratedPaywayElements() {
+        removeDuplicatePluginFields();
+        removeDuplicatePaywayLogos();
+      }
+
+      function resetCheckoutButton() {
+        checkoutOpening = false;
+        payButton.disabled = false;
+      }
+
+      function openHostedCheckout() {
+        /*
+         * Remove fields previously injected by the plugin.
+         */
+        form
+          .querySelectorAll('input[name="is_plugin_js"]')
+          .forEach(function (field) {
+            field.remove();
+          });
+
+        /*
+         * Removing the iframe target makes the PayWay response
+         * open as the current full page.
+         */
+        form.removeAttribute("target");
+
+        HTMLFormElement.prototype.submit.call(form);
+      }
+
+      function openBottomSheetCheckout() {
+        if (
+          !window.AbaPayway ||
+          typeof window.AbaPayway.checkout !== "function"
+        ) {
+          console.error("ABA PayWay plugin is not loaded.");
+
+          resetCheckoutButton();
+          return;
+        }
+
+        /*
+         * Restore the iframe target in case it was changed.
+         */
+        form.setAttribute("target", "aba_webservice");
+
+        /*
+         * Avoid accumulating plugin fields after reopening.
+         */
+        form
+          .querySelectorAll('input[name="is_plugin_js"]')
+          .forEach(function (field) {
+            field.remove();
+          });
+
+        window.AbaPayway.checkout();
+
+        /*
+         * PayWay creates its elements asynchronously.
+         */
+        setTimeout(cleanGeneratedPaywayElements, 0);
+        setTimeout(cleanGeneratedPaywayElements, 100);
+        setTimeout(cleanGeneratedPaywayElements, 500);
+      }
+
+      function startCheckout() {
+        /*
+         * Prevent double-clicks and duplicate initialization.
+         */
+        if (checkoutOpening) {
+          return;
+        }
+
+        checkoutOpening = true;
+        payButton.disabled = true;
+
+        try {
+          if (
+            isLineBrowser &&
+            LINE_CHECKOUT_MODE === "hosted"
+          ) {
+            openHostedCheckout();
+            return;
+          }
+
+          openBottomSheetCheckout();
+        } catch (error) {
+          console.error(
+            "Unable to open ABA PayWay checkout:",
+            error
+          );
+
+          resetCheckoutButton();
+        }
+      }
+
+      payButton.addEventListener("click", startCheckout);
+
+      /*
+       * Clean duplicated elements and detect when PayWay closes.
+       */
+      const observer = new MutationObserver(function () {
+        cleanGeneratedPaywayElements();
+
+        const sheet =
+          document.getElementById("aba_checkout_sheet");
+
+        if (!sheet) {
+          return;
+        }
+
+        const isClosed =
+          sheet.getAttribute("aria-hidden") === "true" ||
+          sheet.style.display === "none";
+
+        if (isClosed) {
+          resetCheckoutButton();
+        }
+      });
+
+      observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: [
+          "aria-hidden",
+          "style"
+        ]
+      });
+    })();
+  </script>
+</body>
+</html>
