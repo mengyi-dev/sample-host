@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Page - iframe Dimension Checker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            color: #667eea;
+            font-size: 16px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .parent-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            margin-bottom: 15px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            color: #555;
+        }
+
+        .info-item strong {
+            color: #333;
+        }
+
+        .info-value {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .iframe-container {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #paymentIframe {
+            width: 100%;
+            height: 800px;
+            border: none;
+            display: block;
+        }
+
+        .code-section {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .resize-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .resize-btn {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 13px;
+            transition: background 0.3s ease;
+        }
+
+        .resize-btn:hover {
+            background: #764ba2;
+        }
+
+        .note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 12px;
+            border-radius: 6px;
+            color: #856404;
+            font-size: 13px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 1024px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            #paymentIframe {
+                height: 600px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <!-- Left: Parent Info -->
+        <div class="section">
+            <h1>🖥️ Parent Window</h1>
+            <h2>Window Dimensions</h2>
+            
+            <div class="parent-info">
+                <div class="info-item">
+                    <strong>Width:</strong>
+                    <span class="info-value" id="parentWidth">--</span>
+                </div>
+                <div class="info-item">
+                    <strong>Height:</strong>
+                    <span class="info-value" id="parentHeight">--</span>
+                </div>
+            </div>
+
+            <h2>iframe Resize Controls</h2>
+            <div class="resize-controls">
+                <button class="resize-btn" onclick="resizeIframe(400, 600)">📱 Mobile (400x600)</button>
+                <button class="resize-btn" onclick="resizeIframe(768, 1024)">📊 Tablet (768x1024)</button>
+                <button class="resize-btn" onclick="resizeIframe(1200, 800)">💻 Desktop (1200x800)</button>
+            </div>
+
+            <h2>HTML Setup</h2>
+            <div class="code-section">
+&lt;iframe 
+  id="paymentIframe"
+  src="index.html"
+  title="Payment Portal"&gt;
+&lt;/iframe&gt;</div>
+
+            <div class="note">
+                <strong>ℹ️ Same-Origin Only:</strong> The iframe can only access parent window and iframe element dimensions if both pages are on the same origin. For cross-origin iframes (different domains), dimensions are not accessible due to Same-Origin Policy.
+            </div>
+        </div>
+
+        <!-- Right: iframe Preview -->
+        <div class="section">
+            <h1>🎁 iframe Content</h1>
+            <h2>Dimension Checker Preview</h2>
+            <div class="iframe-container">
+                <iframe 
+                    id="paymentIframe"
+                    src="https://tele-mini-app-roan.vercel.app/qr-payment-ui/index.html"
+                    title="Dimension Checker"
+                    sandbox="allow-same-origin allow-scripts"
+                ></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update parent dimensions on load and resize
+        function updateParentDimensions() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            document.getElementById('parentWidth').textContent = `${width}px`;
+            document.getElementById('parentHeight').textContent = `${height}px`;
+        }
+
+        // Resize iframe to specified dimensions
+        function resizeIframe(width, height) {
+            const iframe = document.getElementById('paymentIframe');
+            iframe.style.width = width + 'px';
+            iframe.style.height = height + 'px';
+        }
+
+        // Update on load
+        window.addEventListener('load', updateParentDimensions);
+
+        // Update on resize
+        window.addEventListener('resize', updateParentDimensions);
+
+        // Initial update
+        updateParentDimensions();
+    </script>
+</body>
+</html>
