@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cross-Device Audio Loop</title>
+  <title>Automatic Timed Audio Loop</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -31,75 +31,45 @@
       margin-bottom: 1.5rem;
     }
 
-    .button-group {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 1rem;
-    }
-
-    .btn {
-      flex: 1;
-      background-color: #005d86;
-      color: #ffffff;
-      border: none;
-      padding: 0.75rem 1rem;
-      font-size: 0.9rem;
-      font-weight: 600;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background-color 0.2s ease, transform 0.1s ease;
-      touch-action: manipulation; /* Optimizes tap responsiveness on mobile */
-    }
-
-    .btn-danger { background-color: #dc2626; }
-    .btn:hover { opacity: 0.9; }
-    .btn:active { transform: scale(0.98); }
-
     .status-box {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
-      padding: 0.75rem;
-      font-size: 0.85rem;
+      padding: 1rem;
+      font-size: 0.9rem;
       color: #475569;
     }
 
     .badge {
       display: inline-block;
-      padding: 2px 8px;
+      padding: 4px 10px;
       border-radius: 12px;
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       font-weight: bold;
-      margin-top: 5px;
+      margin-top: 8px;
     }
     .badge-info { background: #e0f2fe; color: #0369a1; }
     .badge-success { background: #dcfce7; color: #15803d; }
-    .badge-warning { background: #fef3c7; color: #b45309; }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <h1>Universal Audio Loop</h1>
-    
-    <div class="button-group">
-      <button class="btn" id="playBtn">Manual Play</button>
-      <button class="btn btn-danger" id="stopBtn">Stop Loop</button>
-    </div>
+  <!-- Silent background HTML5 audio element to maintain active audio context -->
+  <audio id="silentKeepAlive" loop muted playsinline src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="></audio>
 
+  <div class="card">
+    <h1>Automatic Audio Loop</h1>
     <div class="status-box">
-      <div id="statusText">Initializing...</div>
-      <div id="statusBadge" class="badge badge-info">Starting</div>
+      <div id="statusText">Starting timer...</div>
+      <div id="statusBadge" class="badge badge-info">Initializing</div>
     </div>
   </div>
 
   <script>
     let audioCtx = null;
     let timerId = null;
-    let isNextInterval5s = true; // Tracks alternating sequence (5s -> 3s -> 5s -> 3s...)
-    let isUnlocked = false;
+    let isNextInterval5s = true; // Alternates between 5s and 2s
 
-    // Cross-device AudioContext initialization
     function getAudioContext() {
       if (!audioCtx) {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -108,11 +78,10 @@
       return audioCtx;
     }
 
-    // Audio Synthesizer with Mobile Support
+    // Sound Generator (synthesizes chime)
     function produceSound() {
       const ctx = getAudioContext();
 
-      // Mobile Safari context recovery
       if (ctx.state === 'suspended') {
         ctx.resume();
       }
@@ -123,7 +92,7 @@
 
       osc.type = 'sine';
       
-      // Chime frequencies (E5 -> B5)
+      // Chime note sequence (E5 -> B5)
       osc.frequency.setValueAtTime(659.25, now);
       osc.frequency.exponentialRampToValueAtTime(987.77, now + 0.15);
 
@@ -137,68 +106,25 @@
       osc.stop(now + 0.8);
     }
 
-    // iOS/Android Silent Buffer Unlock
-    function unlockMobileAudio() {
-      if (isUnlocked) return;
-      
-      const ctx = getAudioContext();
-      
-      // Play a 0.01s silent sound to bypass mobile OS security block
-      const buffer = ctx.createBuffer(1, 1, 22050);
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      source.start(0);
+    // Core Loop: 5s delay -> Sound -> 2s delay -> Sound -> Repeat
+    function runAutoLoop() {
+      clearTimeout(timerId);
 
-      ctx.resume().then(() => {
-        isUnlocked = true;
-        updateUI("Audio engine active", "badge-success", "Unlocked");
-      });
-    }
+      // Determine current delay: 5000ms or 2000ms
+      const delay = isNextInterval5s ? 5000 : 2000;
 
-    // Alternating Timer Loop (5s -> 3s -> 5s)
-    function scheduleNextPlay() {
-      clearTimeout(timerId); // Prevent overlapping timers
-
-      const currentDelay = isNextInterval5s ? 5000 : 3000;
-
-      updateUI(`Waiting ${currentDelay / 1000}s for next auto-play...`, "badge-info", "Loop Active");
+      updateUI(`Waiting ${delay / 1000}s for next play...`, "badge-info", "Loop Running");
 
       timerId = setTimeout(() => {
-        const ctx = getAudioContext();
-
-        // Check if device blocked autoplay
-        if (ctx.state === 'suspended' || !isUnlocked) {
-          handleAutoplayBlock();
-          return;
-        }
-
         produceSound();
-        isNextInterval5s = !isNextInterval5s; // Toggle interval
-        scheduleNextPlay(); // Next iteration
-      }, currentDelay);
-    }
+        updateUI("Playing chime!", "badge-success", "Audio Played");
 
-    // Mobile Interaction Handler
-    function handleAutoplayBlock() {
-      updateUI("Tap screen to enable background audio", "badge-warning", "Awaiting Touch");
+        // Alternate interval toggle
+        isNextInterval5s = !isNextInterval5s;
 
-      const unlockAndRun = () => {
-        unlockMobileAudio();
-        produceSound();
-        
-        // Remove listeners once unlocked
-        ['touchstart', 'touchend', 'click', 'keydown'].forEach(evt => {
-          document.removeEventListener(evt, unlockAndRun);
-        });
-
-        scheduleNextPlay();
-      };
-
-      // Listen across all mobile and desktop input events
-      ['touchstart', 'touchend', 'click', 'keydown'].forEach(evt => {
-        document.addEventListener(evt, unlockAndRun, { once: true });
-      });
+        // Schedule next iteration
+        runAutoLoop();
+      }, delay);
     }
 
     function updateUI(text, badgeClass, badgeText) {
@@ -208,30 +134,18 @@
       badge.className = `badge ${badgeClass}`;
     }
 
-    // Controls
-    document.getElementById('playBtn').addEventListener('click', () => {
-      unlockMobileAudio();
-      produceSound();
-      updateUI("Manual sound triggered!", "badge-success", "Manual Play");
-    });
-
-    document.getElementById('stopBtn').addEventListener('click', () => {
-      clearTimeout(timerId);
-      updateUI("Loop stopped.", "badge-warning", "Stopped");
-    });
-
-    // Handle Page Visibility Change (mobile backgrounding / tab switching)
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && isUnlocked) {
-        // Resume context and reset loop when user re-opens tab
-        getAudioContext().resume();
-        scheduleNextPlay();
-      }
-    });
-
-    // Startup Sequence
+    // Page Load Startup (Zero Click Required)
     window.addEventListener('DOMContentLoaded', () => {
-      scheduleNextPlay();
+      // 1. Play silent audio track to initialize audio pipeline automatically
+      const silentTrack = document.getElementById('silentKeepAlive');
+      silentTrack.muted = false;
+      silentTrack.play().catch(() => {
+        /* Silently handled fallback if browser engine delays initial buffer */
+      });
+
+      // 2. Start initial sound immediately, then enter 5s -> 2s schedule
+      produceSound();
+      runAutoLoop();
     });
   </script>
 
