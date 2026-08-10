@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sound Player - Auto & Manual Play</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f4f6f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .card {
+      background: #ffffff;
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      max-width: 360px;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      color: #333333;
+      margin-bottom: 1.5rem;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+
+    .btn {
+      flex: 1;
+      background-color: #005d86;
+      color: #ffffff;
+      border: none;
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn-secondary {
+      background-color: #e2e8f0;
+      color: #334155;
+    }
+
+    .btn:hover { opacity: 0.9; }
+    .btn:active { transform: scale(0.98); }
+
+    .status-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.85rem;
+      color: #475569;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+    .badge-success { background: #dcfce7; color: #15803d; }
+    .badge-warning { background: #fef3c7; color: #b45309; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>Web Audio Controller</h1>
+    
+    <div class="button-group">
+      <button class="btn" id="playBtn">Manual Play</button>
+      <button class="btn btn-secondary" id="reTriggerAutoBtn">Test Autoplay</button>
+    </div>
+
+    <div class="status-box">
+      <div id="statusText">Initializing...</div>
+      <div id="statusBadge" class="badge"></div>
+    </div>
+  </div>
+
+  <script>
+    let audioCtx = null;
+
+    // Core Audio Generator using Web Audio API
+    function produceSound() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      
+      // Chime note frequencies (E5 -> B5)
+      osc.frequency.setValueAtTime(659.25, now);
+      osc.frequency.exponentialRampToValueAtTime(987.77, now + 0.15);
+
+      // Volume envelope
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.8);
+    }
+
+    // Function to handle Autoplay execution & fallback
+    async function attemptAutoplay() {
+      const statusText = document.getElementById('statusText');
+      const statusBadge = document.getElementById('statusBadge');
+
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        // Try playing sound immediately
+        produceSound();
+
+        // Check if browser blocked context audio state
+        if (audioCtx.state === 'suspended') {
+          throw new Error("Autoplay blocked by browser policy");
+        }
+
+        statusText.textContent = "Autoplay Succeeded!";
+        statusBadge.textContent = "Autoplay Active";
+        statusBadge.className = "badge badge-success";
+      } catch (err) {
+        // Autoplay failed (expected on first visit / Incognito)
+        statusText.textContent = "Autoplay blocked. Click anywhere or press 'Manual Play' to listen.";
+        statusBadge.textContent = "Waiting for User Action";
+        statusBadge.className = "badge badge-warning";
+
+        // Unlocks audio context on the FIRST interaction anywhere on page
+        const unlockAudio = () => {
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().then(() => {
+              produceSound();
+              statusText.textContent = "Audio Unlocked & Played!";
+              statusBadge.textContent = "Unlocked";
+              statusBadge.className = "badge badge-success";
+            });
+          }
+          // Cleanup interaction listeners once unlocked
+          document.removeEventListener('click', unlockAudio);
+          document.removeEventListener('keydown', unlockAudio);
+        };
+
+        document.addEventListener('click', unlockAudio);
+        document.addEventListener('keydown', unlockAudio);
+      }
+    }
+
+    // Event Handlers
+    document.getElementById('playBtn').addEventListener('click', () => {
+      produceSound();
+      document.getElementById('statusText').textContent = "Manual sound triggered!";
+      document.getElementById('statusBadge').textContent = "Manual Play";
+      document.getElementById('statusBadge').className = "badge badge-success";
+    });
+
+    document.getElementById('reTriggerAutoBtn').addEventListener('click', () => {
+      attemptAutoplay();
+    });
+
+    // Run Autoplay attempt on page startup
+    window.addEventListener('DOMContentLoaded', () => {
+      attemptAutoplay();
+    });
+  </script>
+
+</body>
+</html>
