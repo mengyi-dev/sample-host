@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Alternating Auto Play Sound</title>
+  <title>Cross-Device Audio Loop</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -48,12 +48,10 @@
       border-radius: 8px;
       cursor: pointer;
       transition: background-color 0.2s ease, transform 0.1s ease;
+      touch-action: manipulation; /* Optimizes tap responsiveness on mobile */
     }
 
-    .btn-danger {
-      background-color: #dc2626;
-    }
-
+    .btn-danger { background-color: #dc2626; }
     .btn:hover { opacity: 0.9; }
     .btn:active { transform: scale(0.98); }
 
@@ -82,7 +80,7 @@
 <body>
 
   <div class="card">
-    <h1>Timed Loop Audio Controller</h1>
+    <h1>Universal Audio Loop</h1>
     
     <div class="button-group">
       <button class="btn" id="playBtn">Manual Play</button>
@@ -90,8 +88,8 @@
     </div>
 
     <div class="status-box">
-      <div id="statusText">Waiting to start timer...</div>
-      <div id="statusBadge" class="badge badge-info">Initializing</div>
+      <div id="statusText">Initializing...</div>
+      <div id="statusBadge" class="badge badge-info">Starting</div>
     </div>
   </div>
 
@@ -99,24 +97,33 @@
     let audioCtx = null;
     let timerId = null;
     let isNextInterval5s = true; // Tracks alternating sequence (5s -> 3s -> 5s -> 3s...)
+    let isUnlocked = false;
 
-    // Web Audio Sound Synthesizer
-    function produceSound() {
+    // Cross-device AudioContext initialization
+    function getAudioContext() {
       if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+      }
+      return audioCtx;
+    }
+
+    // Audio Synthesizer with Mobile Support
+    function produceSound() {
+      const ctx = getAudioContext();
+
+      // Mobile Safari context recovery
+      if (ctx.state === 'suspended') {
+        ctx.resume();
       }
 
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-
-      const now = audioCtx.currentTime;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
 
       osc.type = 'sine';
       
-      // Chime note sequence
+      // Chime frequencies (E5 -> B5)
       osc.frequency.setValueAtTime(659.25, now);
       osc.frequency.exponentialRampToValueAtTime(987.77, now + 0.15);
 
@@ -124,49 +131,74 @@
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
 
       osc.connect(gain);
-      gain.connect(audioCtx.destination);
+      gain.connect(ctx.destination);
 
       osc.start(now);
       osc.stop(now + 0.8);
     }
 
-    // Alternating Schedule Loop Handler
-    function scheduleNextPlay() {
-      // Determine interval: 5 seconds (5000ms) or 3 seconds (3000ms)
-      const currentDelay = isNextInterval5s ? 5000 : 3000;
-      const nextDelayText = isNextInterval5s ? "3s" : "5s";
+    // iOS/Android Silent Buffer Unlock
+    function unlockMobileAudio() {
+      if (isUnlocked) return;
+      
+      const ctx = getAudioContext();
+      
+      // Play a 0.01s silent sound to bypass mobile OS security block
+      const buffer = ctx.createBuffer(1, 1, 22050);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
 
-      updateUI(`Waiting ${currentDelay / 1000}s for next auto-play...`, "badge-info", "Timer Running");
+      ctx.resume().then(() => {
+        isUnlocked = true;
+        updateUI("Audio engine active", "badge-success", "Unlocked");
+      });
+    }
+
+    // Alternating Timer Loop (5s -> 3s -> 5s)
+    function scheduleNextPlay() {
+      clearTimeout(timerId); // Prevent overlapping timers
+
+      const currentDelay = isNextInterval5s ? 5000 : 3000;
+
+      updateUI(`Waiting ${currentDelay / 1000}s for next auto-play...`, "badge-info", "Loop Active");
 
       timerId = setTimeout(() => {
-        try {
-          produceSound();
-          
-          // Toggle next interval mode for the subsequent cycle
-          isNextInterval5s = !isNextInterval5s;
-          
-          // Recursively schedule the next play
-          scheduleNextPlay();
-        } catch (err) {
+        const ctx = getAudioContext();
+
+        // Check if device blocked autoplay
+        if (ctx.state === 'suspended' || !isUnlocked) {
           handleAutoplayBlock();
+          return;
         }
+
+        produceSound();
+        isNextInterval5s = !isNextInterval5s; // Toggle interval
+        scheduleNextPlay(); // Next iteration
       }, currentDelay);
     }
 
-    // Handles browser autoplay restriction unlock
+    // Mobile Interaction Handler
     function handleAutoplayBlock() {
-      updateUI("Autoplay blocked. Click page once to activate timer loop.", "badge-warning", "Waiting for Click");
+      updateUI("Tap screen to enable background audio", "badge-warning", "Awaiting Touch");
 
-      const unlockAndStart = () => {
+      const unlockAndRun = () => {
+        unlockMobileAudio();
         produceSound();
-        scheduleNextPlay();
+        
+        // Remove listeners once unlocked
+        ['touchstart', 'touchend', 'click', 'keydown'].forEach(evt => {
+          document.removeEventListener(evt, unlockAndRun);
+        });
 
-        document.removeEventListener('click', unlockAndStart);
-        document.removeEventListener('keydown', unlockAndStart);
+        scheduleNextPlay();
       };
 
-      document.addEventListener('click', unlockAndStart);
-      document.addEventListener('keydown', unlockAndStart);
+      // Listen across all mobile and desktop input events
+      ['touchstart', 'touchend', 'click', 'keydown'].forEach(evt => {
+        document.addEventListener(evt, unlockAndRun, { once: true });
+      });
     }
 
     function updateUI(text, badgeClass, badgeText) {
@@ -176,8 +208,9 @@
       badge.className = `badge ${badgeClass}`;
     }
 
-    // Event Listeners
+    // Controls
     document.getElementById('playBtn').addEventListener('click', () => {
+      unlockMobileAudio();
       produceSound();
       updateUI("Manual sound triggered!", "badge-success", "Manual Play");
     });
@@ -187,7 +220,16 @@
       updateUI("Loop stopped.", "badge-warning", "Stopped");
     });
 
-    // Start 5s -> 3s -> 5s timer sequence when loaded
+    // Handle Page Visibility Change (mobile backgrounding / tab switching)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && isUnlocked) {
+        // Resume context and reset loop when user re-opens tab
+        getAudioContext().resume();
+        scheduleNextPlay();
+      }
+    });
+
+    // Startup Sequence
     window.addEventListener('DOMContentLoaded', () => {
       scheduleNextPlay();
     });
