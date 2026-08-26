@@ -1,0 +1,549 @@
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rive Video Player &amp; AI Analyzer</title>
+<style>
+  * { box-sizing: border-box; }
+  body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+  
+  .player { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; background-color: #0f1115; }
+  #canvas { width: 100%; height: 100%; position: absolute; inset: 0; display: block; }
+
+  /* Splash Screen */
+  .splash { position: absolute; z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 15px; color: #8e95a5; transition: opacity 0.3s; pointer-events: none; }
+  .splash.hidden { opacity: 0; pointer-events: none; }
+  .splash .icon { font-size: 52px; color: #fff; margin-bottom: 5px; }
+  .splash button { pointer-events: auto; padding: 12px 28px; background: #7658ff; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+  .splash button:hover { background: #8a73ff; }
+
+  /* Drag & Drop Overlay */
+  .drag-overlay { position: absolute; inset: 0; background: rgba(118, 88, 255, 0.15); border: 4px dashed #7658ff; z-index: 20; display: none; pointer-events: none; }
+  .drag-overlay.active { display: block; }
+
+  /* YouTube-Style Control Bar */
+  .controls-wrapper { position: absolute; bottom: 0; left: 0; right: 0; padding: 0 15px 10px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%); z-index: 10; opacity: 1; transition: opacity 0.3s ease; }
+  .controls-wrapper.fade-out { opacity: 0; cursor: none; pointer-events: none; }
+  .player.paused .controls-wrapper { opacity: 1 !important; pointer-events: auto !important; }
+  
+  /* Timeline Progress Bar */
+  .timeline-container { width: 100%; height: 16px; display: flex; align-items: center; cursor: pointer; position: relative; }
+  .timeline { width: 100%; height: 4px; -webkit-appearance: none; background: rgba(255, 255, 255, 0.2); outline: none; cursor: pointer; transition: height 0.1s ease; border-radius: 2px; margin: 0; padding: 0; }
+  .timeline:hover { height: 6px; }
+  
+  .timeline::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #7658ff; cursor: pointer; transform: scale(0); transition: transform 0.1s ease; }
+  .timeline-container:hover .timeline::-webkit-slider-thumb, .timeline:active::-webkit-slider-thumb { transform: scale(1); }
+  .timeline:disabled { cursor: not-allowed; opacity: 0.5; }
+  .timeline:disabled::-webkit-slider-thumb { display: none; }
+  
+  /* Control Buttons */
+  .buttons-row { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 8px; }
+  .buttons-group { display: flex; align-items: center; gap: 16px; }
+  .buttons-row button { background: none; border: none; color: #fff; cursor: pointer; width: 32px; height: 32px; display: flex; justify-content: center; align-items: center; transition: transform 0.1s; border-radius: 50%; }
+  .buttons-row button:hover { transform: scale(1.15); background: rgba(255,255,255,0.1); }
+  .buttons-row button svg { width: 24px; height: 24px; fill: currentColor; }
+
+  /* AI Button */
+  #btn-ai { color: #facc15; font-weight: bold; width: auto; padding: 0 10px; border-radius: 16px; gap: 6px; background: rgba(250, 204, 21, 0.1); }
+  #btn-ai:hover { background: rgba(250, 204, 21, 0.2); transform: scale(1.05); }
+
+  /* Time Display */
+  .time-display { color: #ddd; font-size: 13px; font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
+  .time-display span { color: #888; }
+  
+  /* Toast Notification */
+  .toast { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(40,40,40,0.95); color: white; padding: 12px 24px; border-radius: 4px; font-size: 14px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); }
+  .toast.show { opacity: 1; }
+
+  /* AI Panel Sidebar */
+  .ai-panel { position: absolute; top: 0; right: -400px; width: 400px; max-width: 100vw; height: 100%; background: #151820; border-left: 1px solid #2a2e39; z-index: 40; transition: right 0.3s ease; display: flex; flex-direction: column; box-shadow: -5px 0 20px rgba(0,0,0,0.5); }
+  .ai-panel.open { right: 0; }
+  .ai-panel-header { padding: 16px 20px; border-bottom: 1px solid #2a2e39; display: flex; justify-content: space-between; align-items: center; color: #fff; font-weight: 600; }
+  .ai-panel-close { background: none; border: none; color: #8e95a5; font-size: 24px; cursor: pointer; transition: color 0.2s; }
+  .ai-panel-close:hover { color: #fff; }
+  .ai-panel-content { flex: 1; overflow-y: auto; padding: 20px; color: #e9ebf0; font-size: 14px; line-height: 1.6; }
+  
+  /* Loading animation for AI */
+  .ai-loading { display: flex; gap: 8px; justify-content: center; padding: 20px; display: none; }
+  .ai-loading.show { display: flex; }
+  .dot { width: 8px; height: 8px; background: #7658ff; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+  .dot:nth-child(1) { animation-delay: -0.32s; }
+  .dot:nth-child(2) { animation-delay: -0.16s; }
+  @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+  /* Markdown Styles in AI Panel */
+  .ai-panel-content pre { background: #0c0e13; padding: 12px; border-radius: 6px; overflow-x: auto; border: 1px solid #252933; margin: 10px 0; }
+  .ai-panel-content code { font-family: monospace; color: #a5b4fc; }
+  .ai-panel-content h2, .ai-panel-content h3 { color: #fff; margin-top: 20px; margin-bottom: 10px; font-size: 16px; }
+  .ai-panel-content p { margin-bottom: 12px; }
+
+  input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+
+<div class="player paused" id="player">
+  <canvas id="canvas"></canvas>
+  <div class="drag-overlay" id="drag-overlay"></div>
+  
+  <div class="splash" id="splash">
+    <div class="icon">▶</div>
+    <button id="open-btn">Open Rive File</button>
+  </div>
+
+  <div class="controls-wrapper" id="controls">
+    <div class="timeline-container">
+      <input type="range" class="timeline" id="timeline" min="0" max="1" value="0" step="0.001" disabled="">
+    </div>
+
+    <div class="buttons-row">
+      <div class="buttons-group">
+        <button id="btn-play" title="Play/Pause">
+          <svg viewBox="0 0 24 24" id="icon-play"><path d="M8 5v14l11-7z"></path></svg>
+        </button>
+        <button id="btn-prev" title="Previous Frame">
+          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg>
+        </button>
+        <button id="btn-next" title="Next Frame">
+          <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>
+        </button>
+        <div class="time-display" id="time-display">0:00 <span>/ 0:00</span></div>
+      </div>
+      
+      <div class="buttons-group">
+        <button id="btn-ai" title="Analyze with AI">
+          ✨ AI
+        </button>
+        <button id="btn-open" title="Open File">
+          <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H4V8h16v12z"></path></svg>
+        </button>
+        <button id="btn-fullscreen" title="Fullscreen">
+          <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"></path></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Side Panel -->
+  <div class="ai-panel" id="ai-panel">
+    <div class="ai-panel-header">
+      <span>✨ Gemini AI Analysis</span>
+      <button class="ai-panel-close" id="btn-close-ai">×</button>
+    </div>
+    <div class="ai-loading" id="ai-loading">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+    <div class="ai-panel-content" id="ai-content">
+      Welcome to the AI Assistant! Load a Rive file and click the AI button to analyze its structure and generate an integration snippet.
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Message</div>
+  <input type="file" id="file-input" accept=".riv">
+</div>
+
+<script src="https://unpkg.com/@rive-app/canvas@2.36.0"></script>
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  
+  // --- STATE ---
+  let riveObj = null;
+  let isPlaying = false;
+  let isDragging = false;
+  let playMode = "linear"; // "linear" | "interactive"
+  let activeArtboardName = "";
+  let animName = "";
+  let durationSec = 1;
+  let currentTime = 0;
+  
+  let lastTime = performance.now();
+  let rAFId = null;
+  let hideControlsTimer = null;
+  
+  // Elements
+  const player = $("player");
+  const controls = $("controls");
+  const timeline = $("timeline");
+  const timeDisplay = $("time-display");
+  const aiPanel = $("ai-panel");
+  const aiContent = $("ai-content");
+  const aiLoading = $("ai-loading");
+  
+  const svgPlay = '<path d="M8 5v14l11-7z"/>';
+  const svgPause = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+
+  // --- STREAMING_CHUNK: Utility Functions ---
+  function showToast(msg) {
+    $("toast").textContent = msg;
+    $("toast").classList.add("show");
+    setTimeout(() => $("toast").classList.remove("show"), 3500);
+  }
+
+  function formatTime(sec) {
+    if (isNaN(sec) || sec < 0) return "0:00";
+    let m = Math.floor(sec / 60);
+    let s = Math.floor(sec % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+
+  function updateSliderUI() {
+    if (playMode !== "linear") return;
+    timeline.value = currentTime;
+    let percent = (currentTime / durationSec) * 100;
+    timeline.style.background = `linear-gradient(to right, #7658ff ${percent}%, rgba(255,255,255,0.2) ${percent}%)`;
+    timeDisplay.innerHTML = `${formatTime(currentTime)} <span>/ ${formatTime(durationSec)}</span>`;
+  }
+
+  function updatePlayState(playing) {
+    isPlaying = playing;
+    $("icon-play").innerHTML = playing ? svgPause : svgPlay;
+    
+    if (playing) {
+      player.classList.remove("paused");
+      startHideControlsTimer();
+    } else {
+      player.classList.add("paused");
+      controls.classList.remove("fade-out");
+      clearTimeout(hideControlsTimer);
+    }
+  }
+
+  function startHideControlsTimer() {
+    clearTimeout(hideControlsTimer);
+    controls.classList.remove("fade-out");
+    if (isPlaying) {
+      hideControlsTimer = setTimeout(() => { controls.classList.add("fade-out"); }, 2000);
+    }
+  }
+  player.addEventListener("mousemove", startHideControlsTimer);
+
+  // --- STREAMING_CHUNK: Rive Playback & Perfect Scrubbing Engine ---
+  
+  // The only safe way to scrub/seek in @rive-app/canvas high-level API
+  function manualSeek(timeInSeconds) {
+    if (!riveObj || playMode !== "linear" || !animName) return;
+    
+    // Stop resets the animation to 0
+    riveObj.stop(animName);
+    // Queue it up again
+    riveObj.play(animName);
+    // Pause it so it doesn't move forward
+    riveObj.pause(animName);
+    
+    // Now advance exactly by the delta we want from 0
+    if (timeInSeconds > 0) {
+      riveObj.advance(timeInSeconds);
+    }
+  }
+
+  function renderLoop(time) {
+    if (!riveObj) return;
+    
+    let dt = (time - lastTime) / 1000;
+    if (dt > 0.1) dt = 1/60; // Cap large jumps (e.g., if user tabbed away)
+    lastTime = time;
+
+    // Linear animations are tracked manually for UI syncing
+    if (playMode === "linear" && isPlaying && !isDragging) {
+      currentTime += dt;
+      
+      // Loop
+      if (currentTime >= durationSec) {
+         currentTime = 0;
+         manualSeek(0);
+         riveObj.play(animName); // resume playing after manual seek paused it
+      }
+      
+      updateSliderUI();
+    }
+    
+    rAFId = requestAnimationFrame(renderLoop);
+  }
+
+  // --- STREAMING_CHUNK: File Loading ---
+  async function loadFile(file) {
+    if (!file || !file.name.toLowerCase().endsWith(".riv")) {
+      showToast("Please select a valid .riv file");
+      return;
+    }
+    
+    try {
+      const buffer = await file.arrayBuffer();
+      $("splash").classList.add("hidden");
+      
+      if (riveObj) { try { riveObj.cleanup(); } catch(e) {} }
+      if (rAFId) cancelAnimationFrame(rAFId);
+
+      riveObj = new rive.Rive({
+        buffer: buffer,
+        canvas: $("canvas"),
+        autoplay: false, 
+        layout: new rive.Layout({ fit: rive.Fit.Contain, alignment: rive.Alignment.Center }),
+        onLoad: () => {
+          try { riveObj.resizeDrawingSurfaceToCanvas(); } catch(e) {}
+          
+          playMode = "interactive";
+          activeArtboardName = "";
+          animName = "";
+          
+          try {
+            const contents = riveObj.contents;
+            const ab = contents.artboards[0];
+            activeArtboardName = ab.name;
+            
+            // Look for linear animations first
+            if (ab.animations && ab.animations.length > 0) {
+              animName = ab.animations[0].name;
+              durationSec = ab.animations[0].duration / (ab.animations[0].fps || 60);
+              playMode = "linear";
+            } else if (ab.stateMachines && ab.stateMachines.length > 0) {
+              animName = ab.stateMachines[0].name;
+              playMode = "interactive";
+            }
+          } catch(e) {}
+
+          if (playMode === "linear") {
+            timeline.disabled = false;
+            timeline.max = durationSec;
+            currentTime = 0;
+            timeDisplay.style.display = "inline";
+            updateSliderUI();
+            
+            // Start playing
+            riveObj.play(animName);
+            updatePlayState(true);
+            lastTime = performance.now();
+            rAFId = requestAnimationFrame(renderLoop);
+            
+          } else {
+            // Interactive State Machine
+            timeline.disabled = true;
+            timeline.value = 0;
+            timeline.style.background = "rgba(255,255,255,0.2)";
+            timeDisplay.style.display = "none";
+            showToast("Interactive File Loaded (Timeline scrubbing disabled)");
+            
+            if (animName) riveObj.play(animName);
+            updatePlayState(true);
+            lastTime = performance.now();
+            rAFId = requestAnimationFrame(renderLoop);
+          }
+        },
+        onLoadError: () => {
+          showToast("Failed to read Rive file.");
+          $("splash").classList.remove("hidden");
+        }
+      });
+    } catch (err) {
+      showToast("Error loading file.");
+    }
+  }
+
+  // --- STREAMING_CHUNK: Timeline & Buttons Interactions ---
+  timeline.addEventListener("input", (e) => {
+    if (playMode !== "linear" || !riveObj) return;
+    isDragging = true;
+    updatePlayState(false); // Pause while dragging
+    
+    currentTime = parseFloat(e.target.value);
+    updateSliderUI();
+    
+    // Instantly seek and render frame
+    manualSeek(currentTime); 
+  });
+
+  timeline.addEventListener("change", () => {
+    isDragging = false;
+    lastTime = performance.now();
+  });
+
+  function stepFrame(forward) {
+    if (!riveObj) return;
+    if (playMode === "linear") {
+      updatePlayState(false);
+      
+      currentTime += (forward ? 1 : -1) * (1 / 60); // 1 frame at 60fps
+      if (currentTime < 0) currentTime = durationSec;
+      if (currentTime > durationSec) currentTime = 0;
+      
+      updateSliderUI();
+      manualSeek(currentTime);
+    } else {
+      showToast("Cannot frame-step Interactive State Machines");
+    }
+  }
+
+  $("btn-prev").onclick = () => stepFrame(false);
+  $("btn-next").onclick = () => stepFrame(true);
+  
+  $("btn-play").onclick = () => {
+    if (!riveObj) return;
+    if (isPlaying) {
+      riveObj.pause(animName);
+      updatePlayState(false);
+    } else {
+      if (playMode === "linear") {
+          // If we were paused by manual scrub, we need to resume from currentTime
+          manualSeek(currentTime); 
+      }
+      riveObj.play(animName);
+      lastTime = performance.now();
+      updatePlayState(true);
+    }
+  };
+
+  // --- STREAMING_CHUNK: Gemini AI Integration ---
+  
+  function getRiveMetadata() {
+    if (!riveObj || !riveObj.contents) return null;
+    let data = { artboards: [] };
+    
+    try {
+      riveObj.contents.artboards.forEach(ab => {
+        let board = { name: ab.name, animations: [], stateMachines: [] };
+        
+        if (ab.animations) ab.animations.forEach(a => board.animations.push(a.name));
+        if (ab.stateMachines) {
+           ab.stateMachines.forEach(sm => {
+               let inputs = [];
+               try {
+                 // Try to fetch inputs if the state machine is active
+                 let smInputs = riveObj.stateMachineInputs(sm.name);
+                 if (smInputs) {
+                   smInputs.forEach(i => inputs.push({ name: i.name, type: i.type }));
+                 }
+               } catch(e) {}
+               board.stateMachines.push({ name: sm.name, inputs: inputs });
+           });
+        }
+        data.artboards.push(board);
+      });
+    } catch(e) {
+      console.error(e);
+    }
+    return data;
+  }
+
+  async function callGeminiAPI(prompt) {
+    // Retry logic with exponential backoff
+    const maxRetries = 3;
+    let delay = 1000;
+    
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: {
+            parts: [{ text: "Act as an expert frontend web developer and Rive animation specialist. Provide concise, helpful responses. Do not use markdown wrappers for the entire response, just output the content naturally. Use standard markdown for code blocks." }]
+        }
+    };
+    
+    const apiKey = ""; // Handled automatically by the Canvas environment
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                return candidate.content.parts[0].text;
+            } else {
+                throw new Error("Invalid response structure from Gemini API");
+            }
+        } catch (error) {
+            if (i === maxRetries - 1) throw error;
+            await new Promise(res => setTimeout(res, delay));
+            delay *= 2;
+        }
+    }
+  }
+
+  function simpleMarkdownToHTML(text) {
+    let html = text.replace(/```(html|javascript|js)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    html = html.replace(/\n\n/g, '<br><br>');
+    return html;
+  }
+
+  $("btn-ai").onclick = async () => {
+    aiPanel.classList.add("open");
+    
+    if (!riveObj) {
+        aiContent.innerHTML = "<p>Please load a .riv file first before running the analysis.</p>";
+        return;
+    }
+
+    aiContent.innerHTML = "";
+    aiLoading.classList.add("show");
+    
+    const meta = getRiveMetadata();
+    const prompt = `
+I have loaded a Rive (.riv) animation file in my web player.
+Here is the extracted metadata of its internal structure (Artboards, Animations, State Machines, Inputs):
+${JSON.stringify(meta, null, 2)}
+
+Please perform the following two tasks:
+1. **Analysis & Guess:** Based solely on the names of the artboards, animations, state machines, and inputs, write a short, creative 2-sentence description of what this animation might be visualizing.
+2. **Implementation Guide:** Provide a clean, copy-pasteable HTML/JS code snippet showing how to embed this specific Rive file (using the first artboard and its primary animation or state machine) into a standard webpage using the \`@rive-app/canvas\` library via CDN.
+`;
+
+    try {
+        const responseText = await callGeminiAPI(prompt);
+        aiLoading.classList.remove("show");
+        aiContent.innerHTML = simpleMarkdownToHTML(responseText);
+    } catch (err) {
+        aiLoading.classList.remove("show");
+        aiContent.innerHTML = `<p style="color: #ef4444;">Failed to connect to the AI service. Please try again.</p>`;
+    }
+  };
+
+  $("btn-close-ai").onclick = () => {
+    aiPanel.classList.remove("open");
+  };
+
+  // --- STREAMING_CHUNK: Global Event Listeners ---
+  const triggerOpen = () => $("file-input").click();
+  $("open-btn").onclick = triggerOpen;
+  $("btn-open").onclick = triggerOpen;
+  $("file-input").onchange = (e) => loadFile(e.target.files[0]);
+
+  const dragOverlay = $("drag-overlay");
+  ["dragenter", "dragover"].forEach(evt => window.addEventListener(evt, e => {
+    e.preventDefault(); dragOverlay.classList.add("active");
+  }));
+  ["dragleave", "drop"].forEach(evt => window.addEventListener(evt, e => {
+    e.preventDefault(); dragOverlay.classList.remove("active");
+  }));
+  window.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
+
+  $("btn-fullscreen").onclick = async () => {
+    if (!document.fullscreenElement) await $("player").requestFullscreen().catch(()=>{});
+    else await document.exitFullscreen().catch(()=>{});
+  };
+
+  window.addEventListener("resize", () => {
+    if (riveObj) { try { riveObj.resizeDrawingSurfaceToCanvas(); } catch(e) {} }
+  });
+
+  document.addEventListener("keydown", e => {
+    // Don't trigger shortcuts if ai panel is focused or similar
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    if (e.key === " ") { e.preventDefault(); $("btn-play").click(); }
+    else if (e.key.toLowerCase() === "f") { $("btn-fullscreen").click(); }
+    else if (e.key === "ArrowLeft") { $("btn-prev").click(); }
+    else if (e.key === "ArrowRight") { $("btn-next").click(); }
+  });
+
+})();
+</script>
+
+</body></html>
