@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Staff Performance Evaluation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 p-6 min-h-screen">
+  <div class="max-w-7xl mx-auto space-y-4" x-data="kpiTracker()">
+    <header class="flex items-center justify-between pb-2 border-b border-slate-200">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Staff Performance Evaluation</h1>
+        <p class="text-sm text-slate-500">Edit any cell to recalculate metrics, scores, and grades live.</p>
+      </div>
+      <button 
+        @click="addRow()" 
+        class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition">
+        + Add Staff
+      </button>
+    </header>
+
+    <div class="overflow-x-auto bg-white rounded-xl shadow-sm border border-slate-200">
+      <table class="w-full text-xs text-left border-collapse">
+        <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 uppercase tracking-wider">
+          <tr>
+            <th class="p-3">Staff Name</th>
+            <th class="p-3">Period</th>
+            <th class="p-3 text-center">Total Tasks</th>
+            <th class="p-3 text-center">Tasks Completed</th>
+            <th class="p-3 text-center">Tasks Late</th>
+            <th class="p-3 text-center">Issue Penalty</th>
+            <th class="p-3 text-center">Quality (1-5)</th>
+            <th class="p-3 text-center">Attendance (1-5)</th>
+            <th class="p-3 text-center bg-blue-50/50">Completion %</th>
+            <th class="p-3 text-center bg-blue-50/50">Efficiency Score</th>
+            <th class="p-3 text-center bg-blue-50/50">Penalty Score</th>
+            <th class="p-3 text-center bg-blue-50/50">Final Score</th>
+            <th class="p-3 text-center bg-blue-50/50">Grade</th>
+            <th class="p-3 text-center">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+          <template x-for="(staff, index) in staffList" :key="index">
+            <tr class="hover:bg-slate-50/70 transition">
+              <td class="p-2">
+                <input type="text" x-model="staff.name" class="w-28 font-medium border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+              </td>
+
+              <td class="p-2">
+                <input type="text" x-model="staff.period" class="w-24 text-slate-500 border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+              </td>
+
+              <td class="p-2 text-center">
+                <input type="number" min="0" x-model.number="staff.totalTasks" class="w-16 text-center border border-slate-300 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+              </td>
+
+              <td class="p-2 text-center">
+                <input type="number" min="0" x-model.number="staff.tasksCompleted" class="w-16 text-center border border-slate-300 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+              </td>
+
+              <td class="p-2 text-center">
+                <input type="number" min="0" x-model.number="staff.tasksLate" class="w-16 text-center border border-slate-300 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+              </td>
+
+              <td class="p-2 text-center">
+                <input type="number" min="0" x-model.number="staff.issuePenalty" class="w-14 text-center border border-rose-300 bg-rose-50/30 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-rose-500 outline-none">
+              </td>
+
+              <td class="p-2 text-center">
+                <input type="number" min="1" max="5" step="0.5" x-model.number="staff.quality" class="w-14 text-center border border-slate-300 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+              </td>
+
+              <td class="p-2 text-center">
+                <input type="number" min="1" max="5" step="0.5" x-model.number="staff.attendance" class="w-14 text-center border border-slate-300 rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+              </td>
+
+              <td class="p-3 text-center font-medium bg-blue-50/40" x-text="calcCompletion(staff)"></td>
+
+              <td class="p-3 text-center font-medium bg-blue-50/40" x-text="calcEfficiency(staff)"></td>
+
+              <td class="p-3 text-center font-medium bg-blue-50/40 text-rose-600" x-text="calcPenalty(staff)"></td>
+
+              <td class="p-3 text-center font-semibold text-slate-900 bg-blue-50/40" x-text="calcFinalScore(staff)"></td>
+
+              <td class="p-3 text-center bg-blue-50/40">
+                <span :class="badgeClass(calcGrade(staff))" class="px-2.5 py-0.5 rounded-full font-semibold inline-block" x-text="calcGrade(staff)"></span>
+              </td>
+
+              <td class="p-3 text-center">
+                <button @click="removeRow(index)" class="text-rose-500 hover:text-rose-700 font-medium">✕</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function kpiTracker() {
+      return {
+        staffList: [
+          { name: 'Staff A', period: 'Jan-2026', totalTasks: 5,  tasksCompleted: 5,  tasksLate: 0, issuePenalty: 0, quality: 5, attendance: 5 },
+          { name: 'Staff B', period: 'Jan-2026', totalTasks: 10, tasksCompleted: 7,  tasksLate: 3, issuePenalty: 2, quality: 5, attendance: 3 },
+          { name: 'Staff C', period: 'Jan-2026', totalTasks: 8,  tasksCompleted: 8,  tasksLate: 0, issuePenalty: 0, quality: 3, attendance: 3 },
+          { name: 'Staff D', period: 'Jan-2026', totalTasks: 16, tasksCompleted: 15, tasksLate: 1, issuePenalty: 0, quality: 5, attendance: 5 },
+        ],
+
+        addRow() {
+          this.staffList.push({
+            name: 'New Staff',
+            period: 'Jan-2026',
+            totalTasks: 0,
+            tasksCompleted: 0,
+            tasksLate: 0,
+            issuePenalty: 0,
+            quality: 5,
+            attendance: 5
+          });
+        },
+
+        removeRow(index) {
+          if (this.staffList.length > 1) {
+            this.staffList.splice(index, 1);
+          }
+        },
+
+        calcCompletion(item) {
+          if (!item.totalTasks || item.totalTasks <= 0) return '0.00%';
+          return ((item.tasksCompleted / item.totalTasks) * 100).toFixed(2) + '%';
+        },
+
+        calcEfficiency(item) {
+          if (!item.totalTasks || item.totalTasks <= 0) return '0.00';
+          return (((item.tasksCompleted - item.tasksLate) / item.totalTasks) * 100).toFixed(2);
+        },
+
+        calcPenalty(item) {
+          return (Number(item.issuePenalty || 0) * 5).toFixed(2);
+        },
+
+        calcFinalScore(item) {
+          const efficiency = item.totalTasks > 0 ? ((item.tasksCompleted - item.tasksLate) / item.totalTasks) * 100 : 0;
+          const quality = Number(item.quality || 0);
+          const attendance = Number(item.attendance || 0);
+          const penalty = Number(item.issuePenalty || 0) * 5;
+
+          const score = (0.5 * efficiency) + (4 * (quality + attendance)) - penalty;
+          return score.toFixed(2);
+        },
+
+        calcGrade(item) {
+          const score = parseFloat(this.calcFinalScore(item));
+          if (score >= 90) return 'Excellent';
+          if (score >= 80) return 'Good';
+          if (score >= 70) return 'Average';
+          return 'Poor';
+        },
+
+        badgeClass(grade) {
+          switch(grade) {
+            case 'Excellent': return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+            case 'Good':      return 'bg-blue-100 text-blue-800 border border-blue-300';
+            case 'Average':   return 'bg-amber-100 text-amber-800 border border-amber-300';
+            default:          return 'bg-rose-100 text-rose-800 border border-rose-300';
+          }
+        }
+      };
+    }
+  </script>
+</body>
+</html>
