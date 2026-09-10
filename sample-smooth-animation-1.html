@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alex Vance — Visual Portfolio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #08090a;
+            color: #f3f4f6;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, .font-heading {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* Native CSS Section Snapping */
+        html {
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+        }
+
+        section[id^="section-"] {
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+        }
+
+        /* Reveal Animations */
+        .reveal-element {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), 
+                        transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: opacity, transform;
+        }
+
+        .reveal-element.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .delay-100 { transition-delay: 100ms; }
+        .delay-200 { transition-delay: 200ms; }
+        .delay-300 { transition-delay: 300ms; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #08090a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+
+        /* Glassmorphism overlays */
+        .glass-panel {
+            background: rgba(18, 18, 22, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-nav {
+            background: rgba(8, 9, 10, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Active Navigation Indicators */
+        .nav-link.active {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .dot-indicator.active {
+            background-color: #ffffff;
+            height: 1.75rem;
+            border-radius: 9999px;
+        }
+
+        /* Image Zoom Hover effect */
+        .img-zoom-container {
+            overflow: hidden;
+        }
+        .img-zoom-container img {
+            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .img-zoom-container:hover img {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-white selection:text-black">
+
+    <header class="fixed top-0 left-0 right-0 z-50 glass-nav transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <!-- Brand Logo -->
+            <a href="#section-1" onclick="scrollToSection(1)" class="flex items-center gap-3 group">
+                <div class="w-9 h-9 rounded-full bg-white text-black font-extrabold flex items-center justify-center text-sm font-heading group-hover:scale-105 transition-transform">
+                    AV
+                </div>
+                <span class="font-bold tracking-tight text-white font-heading text-lg">ALEX VANCE</span>
+            </a>
+
+            <!-- Navigation Links -->
+            <nav class="hidden md:flex items-center space-x-8 text-sm text-zinc-400">
+                <button onclick="scrollToSection(1)" class="nav-link hover:text-white transition-colors" data-nav-target="1">Intro</button>
+                <button onclick="scrollToSection(2)" class="nav-link hover:text-white transition-colors" data-nav-target="2">01 / Lumina</button>
+                <button onclick="scrollToSection(3)" class="nav-link hover:text-white transition-colors" data-nav-target="3">02 / Monolith</button>
+                <button onclick="scrollToSection(4)" class="nav-link hover:text-white transition-colors" data-nav-target="4">03 / Noir</button>
+                <button onclick="scrollToSection(5)" class="nav-link hover:text-white transition-colors" data-nav-target="5">Disciplines</button>
+                <button onclick="scrollToSection(6)" class="nav-link hover:text-white transition-colors" data-nav-target="6">Contact</button>
+            </nav>
+
+            <!-- Quick Action -->
+            <button onclick="scrollToSection(6)" class="hidden sm:inline-flex px-5 py-2 rounded-full bg-white text-black font-semibold text-xs uppercase tracking-wider hover:bg-zinc-200 transition-all">
+                Let's Talk
+            </button>
+
+            <!-- Mobile Menu Toggle -->
+            <button id="mobile-menu-btn" aria-label="Toggle menu" class="md:hidden p-2 text-zinc-400 hover:text-white">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <div id="mobile-menu" class="hidden md:hidden border-b border-zinc-800 bg-zinc-950 px-6 py-4 space-y-3 text-sm">
+            <button onclick="scrollToSection(1)" class="block w-full text-left py-2 text-zinc-300 hover:text-white" data-nav-target="1">00 / Intro</button>
+            <button onclick="scrollToSection(2)" class="block w-full text-left py-2 text-zinc-300 hover:text-white" data-nav-target="2">01 / Lumina Project</button>
+            <button onclick="scrollToSection(3)" class="block w-full text-left py-2 text-zinc-300 hover:text-white" data-nav-target="3">02 / Monolith Architecture</button>
+            <button onclick="scrollToSection(4)" class="block w-full text-left py-2 text-zinc-300 hover:text-white" data-nav-target="4">03 / Noir Fashion</button>
+            <button onclick="scrollToSection(5)" class="block w-full text-left py-2 text-zinc-300 hover:text-white" data-nav-target="5">Disciplines</button>
+            <button onclick="scrollToSection(6)" class="block w-full text-left py-2 text-zinc-300 hover:text-white" data-nav-target="6">Contact</button>
+        </div>
+    </header>
+
+    <div class="fixed right-6 top-1/2 -translate-y-1/2 z-40 hidden xl:flex flex-col gap-3 glass-panel p-2.5 rounded-full">
+        <button onclick="scrollToSection(1)" title="Intro" class="dot-indicator w-2.5 h-2.5 rounded-full bg-zinc-600 hover:bg-zinc-300 transition-all duration-300" data-dot="1"></button>
+        <button onclick="scrollToSection(2)" title="Project 01" class="dot-indicator w-2.5 h-2.5 rounded-full bg-zinc-600 hover:bg-zinc-300 transition-all duration-300" data-dot="2"></button>
+        <button onclick="scrollToSection(3)" title="Project 02" class="dot-indicator w-2.5 h-2.5 rounded-full bg-zinc-600 hover:bg-zinc-300 transition-all duration-300" data-dot="3"></button>
+        <button onclick="scrollToSection(4)" title="Project 03" class="dot-indicator w-2.5 h-2.5 rounded-full bg-zinc-600 hover:bg-zinc-300 transition-all duration-300" data-dot="4"></button>
+        <button onclick="scrollToSection(5)" title="Disciplines" class="dot-indicator w-2.5 h-2.5 rounded-full bg-zinc-600 hover:bg-zinc-300 transition-all duration-300" data-dot="5"></button>
+        <button onclick="scrollToSection(6)" title="Contact" class="dot-indicator w-2.5 h-2.5 rounded-full bg-zinc-600 hover:bg-zinc-300 transition-all duration-300" data-dot="6"></button>
+    </div>
+
+    <main class="w-full">
+        <section id="section-1" class="min-h-screen relative flex items-center justify-center px-6 overflow-hidden">
+            <!-- Background Image with Dark Vignette -->
+            <div class="absolute inset-0 z-0">
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=2000&q=80" 
+                     onerror="this.src='https://placehold.co/1920x1080/08090a/ffffff?text=Alex+Vance'" 
+                     alt="Alex Vance" 
+                     class="w-full h-full object-cover opacity-35">
+                <div class="absolute inset-0 bg-gradient-to-t from-[#08090a] via-[#08090a]/60 to-transparent"></div>
+            </div>
+
+            <div class="relative z-10 max-w-5xl mx-auto text-center pt-20">
+                <div class="reveal-element inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-800 text-zinc-300 text-xs font-semibold uppercase tracking-widest mb-6">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Available For Selected Projects 2026
+                </div>
+
+                <h1 class="reveal-element delay-100 text-5xl sm:text-7xl lg:text-8xl font-extrabold tracking-tight text-white mb-6 uppercase">
+                    Visual Director <br>& Designer
+                </h1>
+
+                <p class="reveal-element delay-200 text-lg sm:text-xl text-zinc-400 max-w-xl mx-auto mb-10 font-light">
+                    Crafting timeless digital experiences, brand identities, and commercial photography.
+                </p>
+
+                <div class="reveal-element delay-300 flex items-center justify-center gap-4">
+                    <button onclick="scrollToSection(2)" class="px-7 py-3.5 rounded-full bg-white text-black font-medium text-sm hover:bg-zinc-200 transition-all flex items-center gap-2 group">
+                        Explore Selected Work
+                        <i data-lucide="arrow-down" class="w-4 h-4 group-hover:translate-y-0.5 transition-transform"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-2" class="min-h-screen py-20 px-6 flex items-center justify-center border-t border-zinc-900 relative">
+            <div class="max-w-6xl mx-auto w-full grid lg:grid-cols-12 gap-8 items-center">
+                <!-- Project Image Tile -->
+                <div class="lg:col-span-7 reveal-element img-zoom-container rounded-3xl overflow-hidden glass-panel border border-zinc-800 cursor-pointer shadow-2xl" onclick="openModal('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1600&q=80', 'Lumina Brand Identity')">
+                    <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80" 
+                         onerror="this.src='https://placehold.co/1200x800/18181b/ffffff?text=Lumina+Studio'" 
+                         alt="Lumina Brand Identity" 
+                         class="w-full h-[380px] sm:h-[480px] object-cover">
+                </div>
+
+                <!-- Project Meta Details -->
+                <div class="lg:col-span-5 reveal-element delay-100 space-y-6">
+                    <div class="text-xs font-mono font-bold text-zinc-500 uppercase tracking-widest">
+                        01 / BRAND IDENTITY & 3D — 2025
+                    </div>
+
+                    <h2 class="text-3xl sm:text-5xl font-bold text-white tracking-tight">
+                        Lumina Studio
+                    </h2>
+
+                    <p class="text-zinc-400 text-base leading-relaxed">
+                        A generative visual system built for a modern artificial intelligence laboratory. Minimal aesthetic paired with fluid digital forms.
+                    </p>
+
+                    <div class="flex flex-wrap gap-2 text-xs">
+                        <span class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300">Art Direction</span>
+                        <span class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300">3D Motion</span>
+                        <span class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300">Identity</span>
+                    </div>
+
+                    <div class="pt-4">
+                        <button onclick="openModal('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1600&q=80', 'Lumina Brand Identity')" class="inline-flex items-center gap-2 text-sm font-semibold text-white hover:text-zinc-300 transition-colors">
+                            Expand Visual Preview
+                            <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-3" class="min-h-screen py-20 px-6 flex items-center justify-center border-t border-zinc-900 relative bg-zinc-950/40">
+            <div class="max-w-6xl mx-auto w-full grid lg:grid-cols-12 gap-8 items-center">
+                <!-- Details Left -->
+                <div class="lg:col-span-5 order-2 lg:order-1 reveal-element space-y-6">
+                    <div class="text-xs font-mono font-bold text-zinc-500 uppercase tracking-widest">
+                        02 / ARCHITECTURAL PHOTOGRAPHY — 2025
+                    </div>
+
+                    <h2 class="text-3xl sm:text-5xl font-bold text-white tracking-tight">
+                        Apex Monolith
+                    </h2>
+
+                    <p class="text-zinc-400 text-base leading-relaxed">
+                        A photographic exploration of contemporary brutalist architecture and shadow composition across Northern Europe.
+                    </p>
+
+                    <div class="flex flex-wrap gap-2 text-xs">
+                        <span class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300">Editorial</span>
+                        <span class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300">Print Exhibition</span>
+                    </div>
+
+                    <div class="pt-4">
+                        <button onclick="openModal('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80', 'Apex Monolith Architecture')" class="inline-flex items-center gap-2 text-sm font-semibold text-white hover:text-zinc-300 transition-colors">
+                            Expand Visual Preview
+                            <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Image Right -->
+                <div class="lg:col-span-7 order-1 lg:order-2 reveal-element delay-100 img-zoom-container rounded-3xl overflow-hidden glass-panel border border-zinc-800 cursor-pointer shadow-2xl" onclick="openModal('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80', 'Apex Monolith Architecture')">
+                    <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80" 
+                         onerror="this.src='https://placehold.co/1200x800/18181b/ffffff?text=Apex+Monolith'" 
+                         alt="Apex Monolith" 
+                         class="w-full h-[380px] sm:h-[480px] object-cover">
+                </div>
+            </div>
+        </section>
+
+        <section id="section-4" class="min-h-screen py-20 px-6 flex items-center justify-center border-t border-zinc-900 relative">
+            <div class="max-w-6xl mx-auto w-full grid lg:grid-cols-12 gap-8 items-center">
+                <!-- Image Tile -->
+                <div class="lg:col-span-7 reveal-element img-zoom-container rounded-3xl overflow-hidden glass-panel border border-zinc-800 cursor-pointer shadow-2xl" onclick="openModal('https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1600&q=80', 'Noir Fashion Editorial')">
+                    <img src="https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=80" 
+                         onerror="this.src='https://placehold.co/1200x800/18181b/ffffff?text=Noir+Editorial'" 
+                         alt="Noir Editorial" 
+                         class="w-full h-[380px] sm:h-[480px] object-cover">
+                </div>
+
+                <!-- Meta Details -->
+                <div class="lg:col-span-5 reveal-element delay-100 space-y-6">
+                    <div class="text-xs font-mono font-bold text-zinc-500 uppercase tracking-widest">
+                        03 / FASHION & FILM — 2026
+                    </div>
+
+                    <h2 class="text-3xl sm:text-5xl font-bold text-white tracking-tight">
+                        Noir Collection
+                    </h2>
+
+                    <p class="text-zinc-400 text-base leading-relaxed">
+                        High-contrast creative direction and campaign film photography commissioned for Tokyo Fashion Week.
+                    </p>
+
+                    <div class="flex flex-wrap gap-2 text-xs">
+                        <span class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300">Campaign</span>
+                        <span class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300">Lookbook</span>
+                    </div>
+
+                    <div class="pt-4">
+                        <button onclick="openModal('https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1600&q=80', 'Noir Fashion Editorial')" class="inline-flex items-center gap-2 text-sm font-semibold text-white hover:text-zinc-300 transition-colors">
+                            Expand Visual Preview
+                            <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-5" class="min-h-screen py-20 px-6 flex items-center justify-center border-t border-zinc-900 bg-zinc-950/30">
+            <div class="max-w-6xl mx-auto w-full">
+                <div class="text-center mb-12">
+                    <span class="text-xs font-mono font-bold text-zinc-500 uppercase tracking-widest">Core Capabilities</span>
+                    <h2 class="text-3xl sm:text-5xl font-bold text-white mt-2">Disciplines</h2>
+                </div>
+
+                <!-- 4 Visual Cards Grid -->
+                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="reveal-element glass-panel p-6 rounded-3xl border border-zinc-800 hover:border-zinc-700 transition-all group">
+                        <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform">
+                            <i data-lucide="palette" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">Art Direction</h3>
+                        <p class="text-zinc-400 text-xs leading-relaxed">Complete visual systems, typography, and brand identity design.</p>
+                    </div>
+
+                    <div class="reveal-element delay-100 glass-panel p-6 rounded-3xl border border-zinc-800 hover:border-zinc-700 transition-all group">
+                        <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform">
+                            <i data-lucide="camera" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">Photography</h3>
+                        <p class="text-zinc-400 text-xs leading-relaxed">Commercial, architectural, and editorial fashion imagery.</p>
+                    </div>
+
+                    <div class="reveal-element delay-200 glass-panel p-6 rounded-3xl border border-zinc-800 hover:border-zinc-700 transition-all group">
+                        <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform">
+                            <i data-lucide="box" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">3D & Motion</h3>
+                        <p class="text-zinc-400 text-xs leading-relaxed">Abstract digital assets, key visual animations, and CGI.</p>
+                    </div>
+
+                    <div class="reveal-element delay-300 glass-panel p-6 rounded-3xl border border-zinc-800 hover:border-zinc-700 transition-all group">
+                        <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform">
+                            <i data-lucide="layout" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">UI Experience</h3>
+                        <p class="text-zinc-400 text-xs leading-relaxed">High-performance digital products and web experiences.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-6" class="min-h-screen py-20 px-6 flex items-center justify-center border-t border-zinc-900 relative">
+            <div class="max-w-4xl mx-auto text-center space-y-8">
+                <div class="w-16 h-16 rounded-full bg-white text-black font-extrabold flex items-center justify-center text-xl font-heading mx-auto mb-4">
+                    AV
+                </div>
+
+                <h2 class="text-4xl sm:text-7xl font-extrabold text-white tracking-tight uppercase">
+                    Let's Create Together
+                </h2>
+
+                <p class="text-zinc-400 text-base sm:text-lg max-w-lg mx-auto font-light">
+                    Accepting commissions and creative leadership roles worldwide.
+                </p>
+
+                <div class="pt-4">
+                    <a href="mailto:alex@vancevisuals.com" class="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-white text-black font-semibold text-base hover:bg-zinc-200 transition-all shadow-xl hover:scale-105">
+                        <i data-lucide="mail" class="w-5 h-5"></i>
+                        alex@vancevisuals.com
+                    </a>
+                </div>
+
+                <div class="flex items-center justify-center gap-8 text-zinc-500 pt-8 text-sm">
+                    <a href="#" class="hover:text-white transition-colors">Instagram</a>
+                    <a href="#" class="hover:text-white transition-colors">Behance</a>
+                    <a href="#" class="hover:text-white transition-colors">X / Twitter</a>
+                    <a href="#" class="hover:text-white transition-colors">LinkedIn</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="image-modal" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-4" onclick="closeModal()">
+        <div class="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
+            <button onclick="closeModal()" class="absolute -top-12 right-0 text-zinc-400 hover:text-white p-2">
+                <i data-lucide="x" class="w-8 h-8"></i>
+            </button>
+            <img id="modal-img" src="" alt="Preview" class="max-h-[80vh] w-auto rounded-2xl object-contain shadow-2xl border border-zinc-800">
+            <h4 id="modal-title" class="text-white text-lg font-bold mt-4 font-heading"></h4>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // Smooth Scroll to Section
+        function scrollToSection(index) {
+            const target = document.getElementById(`section-${index}`);
+            if (!target) return;
+
+            if (!mobileMenu.classList.contains('hidden')) {
+                mobileMenu.classList.add('hidden');
+            }
+
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+        window.scrollToSection = scrollToSection;
+
+        // Active Section Tracking Observer
+        const navLinks = document.querySelectorAll('[data-nav-target]');
+        const dotIndicators = document.querySelectorAll('[data-dot]');
+        const revealElements = document.querySelectorAll('.reveal-element');
+
+        const observerOptions = {
+            root: null,
+            rootMargin: '-30% 0px -30% 0px',
+            threshold: 0.1
+        };
+
+        const sectionObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const sectionId = entry.target.id;
+                    const index = sectionId.replace('section-', '');
+
+                    navLinks.forEach(link => {
+                        if (link.getAttribute('data-nav-target') === index) {
+                            link.classList.add('active');
+                        } else {
+                            link.classList.remove('active');
+                        }
+                    });
+
+                    dotIndicators.forEach(dot => {
+                        if (dot.getAttribute('data-dot') === index) {
+                            dot.classList.add('active');
+                        } else {
+                            dot.classList.remove('active');
+                        }
+                    });
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('section[id^="section-"]').forEach(sec => {
+            sectionObserver.observe(sec);
+        });
+
+        // Reveal Animation Observer
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    revealObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15 });
+
+        revealElements.forEach(el => revealObserver.observe(el));
+
+        // Lightbox Image Preview Modal
+        function openModal(imgSrc, title) {
+            const modal = document.getElementById('image-modal');
+            const modalImg = document.getElementById('modal-img');
+            const modalTitle = document.getElementById('modal-title');
+
+            modalImg.src = imgSrc;
+            modalTitle.textContent = title;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('image-modal');
+            modal.classList.add('hidden');
+        }
+
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+    </script>
+</body>
+</html>
